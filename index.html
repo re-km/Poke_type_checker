@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ポケモン相性 Z-A Database</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link id="appIcon" rel="apple-touch-icon" href="">
+
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+            text-align: center; 
+            padding: 30px 20px; 
+            background-color: #0f1115;
+            color: #eee;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow: hidden; 
+        }
+        
+        #result-card {
+            background: rgba(30, 35, 45, 0.9);
+            border: 1px solid #00fff2;
+            border-radius: 16px;
+            padding: 30px;
+            margin: 20px auto;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            max-width: 400px;
+            box-shadow: 0 0 20px rgba(0, 255, 242, 0.2), inset 0 0 20px rgba(0, 255, 242, 0.05);
+            backdrop-filter: blur(10px);
+        }
+
+        #poke-name { 
+            font-size: 1.8em; 
+            color: #00fff2; 
+            font-weight: bold; 
+            text-shadow: 0 0 10px rgba(0,255,242,0.8); 
+            margin-bottom: 5px; 
+        }
+        
+        #poke-types { 
+            font-size: 1.0em; 
+            color: #aab; 
+            margin-bottom: 20px; 
+            letter-spacing: 2px; 
+        }
+        
+        #result { 
+            font-size: 1.4em; 
+            color: #ff2a6d; 
+            font-weight: bold;
+            line-height: 1.5;
+            text-shadow: 0 0 5px rgba(255, 42, 109, 0.5);
+        }
+        
+        .weak-4x { color: #ff003c; font-size: 1.2em; text-shadow: 0 0 15px rgba(255,0,60,0.8); }
+        .no-weak { color: #05ffa1; text-shadow: 0 0 10px rgba(5,255,161,0.6); }
+
+        #startBtn { 
+            padding: 25px 60px; 
+            font-size: 1.4em; 
+            font-weight: bold;
+            cursor: pointer; 
+            background: linear-gradient(135deg, #00fff2, #0072ff);
+            color: #000; 
+            border: none; 
+            border-radius: 50px; 
+            box-shadow: 0 0 25px rgba(0,255,242,0.4);
+            transition: all 0.2s;
+            margin-top: 30px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #startBtn:active { transform: scale(0.95); box-shadow: 0 0 10px rgba(0,255,242,0.6); }
+
+        #status { margin-top: 25px; color: #556; font-size: 0.8em; font-family: monospace; }
+        
+        .new-badge {
+            font-size: 0.6em;
+            background: #ff2a6d;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            vertical-align: middle;
+            margin-left: 8px;
+            text-shadow: none;
+        }
+
+        canvas { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="result-card">
+        <div id="poke-name">SYSTEM READY</div>
+        <div id="poke-types">Awaiting Input</div>
+        <div id="result">ボタンを押して話しかけてください<br><span style="font-size:0.7em; color:#667;">（例：「ピカチュウ」「メガオーダイル」）</span></div>
+    </div>
+    
+    <button id="startBtn">🎙️ ANALYZE</button>
+    <div id="status">Database Loaded</div>
+
+    <canvas id="iconCanvas" width="512" height="512"></canvas>
+
+<script>
+    // ==========================================
+    // 【Z-A 攻略サイト参照データエリア】
+    // ★重要★ ここも全て「ひらがな/カタカナ」で統一しています
+    // ==========================================
+    const customData = {
+        "メガオーダイル": ["みず", "ドラゴン"], 
+        "メガバクフーン": ["ほのお", "ゴースト"], 
+        "メガメガニウム": ["くさ", "フェアリー"], 
+        
+        "メガゴリランダー": ["くさ"], 
+        "メガエースバーン": ["ほのお"], 
+        "メガインテレオン": ["みず"],
+
+        "メガライチュウ": ["でんき", "かくとう"], 
+        "メガライチュウX": ["でんき", "かくとう"],
+        "メガライチュウY": ["でんき", "エスパー"],
+        
+        "メガゲッコウガ": ["みず", "あく"],
+        "メガマフォクシー": ["ほのお", "エスパー"],
+        "メガブリガロン": ["くさ", "かくとう"],
+        
+        "メガカイリュー": ["ドラゴン", "ひこう"],
+        "メガウツボット": ["くさ", "どく"],
+        "メガカラマネロ": ["あく", "エスパー"],
+        "メガルチャブル": ["かくとう", "ひこう"],
+        
+        "メガアブソルZ": ["あく"], 
+        "メガムクホーク": ["ノーマル", "ひこう"],
+        "メガシャリタツ": ["ドラゴン", "みず"],
+        "メガケケンカニ": ["かくとう", "こおり"],
+        "メガニャオニクス": ["エスパー"],
+        "メガゴルーグ": ["じめん", "ゴースト"],
+        "メガグソクムシャ": ["むし", "みず"],
+        "メガスコヴィラン": ["くさ", "ほのお"],
+        "メガキラフロル": ["いわ", "どく"],
+        "メガヒードラン": ["ほのお", "はがね"],
+        "メガダークライ": ["あく"],
+        "メガルカリオZ": ["かくとう", "はがね"],
+        "メガゼラオラ": ["でんき"], 
+        "メガチリーン": ["エスパー"],
+        "メガセグレイブ": ["ドラゴン", "こおり"],
+        "メガマギアナ": ["はがね", "フェアリー"],
+        
+        "ヒスイヌメイル": ["はがね", "ドラゴン"],
+        "ヒスイヌメルゴン": ["はがね", "ドラゴン"],
+        "ヒスイバクフーン": ["ほのお", "ゴースト"],
+        "ヒスイダイケンキ": ["みず", "あく"],
+        "ヒスイジュナイパー": ["くさ", "かくとう"],
+        "ヒスイゾロアーク": ["ノーマル", "ゴースト"],
+        "ヒスイウインディ": ["ほのお", "いわ"],
+        "ヒスイマルマイン": ["でんき", "くさ"],
+        "ヒスイウォーグル": ["エスパー", "ひこう"],
+        
+        "ジガルデ": ["ドラゴン", "じめん"],
+        "パーフェクトジガルデ": ["ドラゴン", "じめん"],
+    };
+
+    window.onload = function() {
+        const canvas = document.getElementById('iconCanvas');
+        const ctx = canvas.getContext('2d');
+        const grad = ctx.createLinearGradient(0,0,512,512);
+        grad.addColorStop(0, "#0f0c29");
+        grad.addColorStop(1, "#302b63");
+        ctx.fillStyle = grad; ctx.fillRect(0, 0, 512, 512);
+        
+        ctx.strokeStyle = '#00fff2';
+        ctx.lineWidth = 50;
+        ctx.lineJoin = "round";
+        ctx.shadowColor = "#00fff2";
+        ctx.shadowBlur = 30;
+        
+        ctx.beginPath();
+        ctx.moveTo(120, 120); ctx.lineTo(392, 120); 
+        ctx.lineTo(120, 392); ctx.lineTo(392, 392);
+        ctx.stroke();
+
+        document.getElementById('appIcon').href = canvas.toDataURL('image/png');
+        loadPokemonData();
+    };
+
+    // --- 修正箇所: 全て公式表記（ひらがな・カタカナ）に統一 ---
+    const typeMatrix = {
+        "ノーマル": { "いわ": 0.5, "ゴースト": 0, "はがね": 0.5 },
+        "ほのお": { "ほのお": 0.5, "みず": 0.5, "くさ": 2, "こおり": 2, "むし": 2, "いわ": 0.5, "ドラゴン": 0.5, "はがね": 2 },
+        "みず": { "ほのお": 2, "みず": 0.5, "くさ": 0.5, "じめん": 2, "いわ": 2, "ドラゴン": 0.5 },
+        "くさ": { "ほのお": 0.5, "みず": 2, "くさ": 0.5, "どく": 0.5, "じめん": 2, "ひこう": 0.5, "むし": 0.5, "いわ": 2, "ドラゴン": 0.5, "はがね": 0.5 },
+        "でんき": { "みず": 2, "くさ": 0.5, "でんき": 0.5, "じめん": 0, "ひこう": 2, "ドラゴン": 0.5 },
+        "こおり": { "ほのお": 0.5, "みず": 0.5, "くさ": 2, "こおり": 0.5, "じめん": 2, "ひこう": 2, "ドラゴン": 2, "はがね": 0.5 },
+        "かくとう": { "ノーマル": 2, "こおり": 2, "どく": 0.5, "ひこう": 0.5, "エスパー": 0.5, "むし": 0.5, "いわ": 2, "ゴースト": 0, "あく": 2, "はがね": 2, "フェアリー": 0.5 },
+        "どく": { "くさ": 2, "どく": 0.5, "じめん": 0.5, "いわ": 0.5, "ゴースト": 0.5, "はがね": 0, "フェアリー": 2 },
+        "じめん": { "ほのお": 2, "くさ": 0.5, "でんき": 2, "どく": 2, "ひこう": 0, "むし": 0.5, "いわ": 2, "はがね": 2 },
+        "ひこう": { "くさ": 2, "でんき": 0.5, "かくとう": 2, "むし": 2, "いわ": 0.5, "はがね": 0.5 },
+        "エスパー": { "かくとう": 2, "どく": 2, "エスパー": 0.5, "あく": 0, "はがね": 0.5 },
+        "むし": { "ほのお": 0.5, "くさ": 2, "かくとう": 0.5, "どく": 0.5, "ひこう": 0.5, "エスパー": 2, "ゴースト": 0.5, "あく": 2, "はがね": 0.5, "フェアリー": 0.5 },
+        "いわ": { "ほのお": 2, "こおり": 2, "かくとう": 0.5, "じめん": 0.5, "ひこう": 2, "むし": 2, "はがね": 0.5 },
+        "ゴースト": { "ノーマル": 0, "エスパー": 2, "ゴースト": 2, "あく": 0.5 },
+        "ドラゴン": { "ドラゴン": 2, "はがね": 0.5, "フェアリー": 0 },
+        "あく": { "かくとう": 0.5, "エスパー": 2, "ゴースト": 2, "あく": 0.5, "フェアリー": 0.5 },
+        "はがね": { "ほのお": 0.5, "みず": 0.5, "でんき": 0.5, "こおり": 2, "いわ": 2, "はがね": 0.5, "フェアリー": 2 },
+        "フェアリー": { "ほのお": 0.5, "かくとう": 2, "どく": 0.5, "ドラゴン": 2, "あく": 2, "はがね": 0.5 }
+    };
+
+    const megaData = {
+        "リザードンX": ["ほのお", "ドラゴン"], "リザードンY": ["ほのお", "ひこう"],
+        "ミュウツーX": ["エスパー", "かくとう"], "ギャラドス": ["みず", "あく"],
+        "ゲンガー": ["ゴースト", "どく"], "デンリュウ": ["でんき", "ドラゴン"],
+        "ジュカイン": ["くさ", "ドラゴン"], "バシャーモ": ["ほのお", "かくとう"],
+        "ラグラージ": ["みず", "じめん"], "サーナイト": ["エスパー", "フェアリー"],
+        "クチート": ["はがね", "フェアリー"], "ボスゴドラ": ["はがね"],
+        "チルタリス": ["ドラゴン", "フェアリー"], "ミミロップ": ["ノーマル", "かくとう"],
+        "ルカリオ": ["かくとう", "はがね"], "ガブリアス": ["ドラゴン", "じめん"]
+    };
+
+    let pokemonList = [];
+
+    async function loadPokemonData() {
+        const statusDiv = document.getElementById('status');
+        try {
+            const res = await fetch('https://raw.githubusercontent.com/kotofurumiya/pokemon_data/master/data/pokemon_data.json');
+            const data = await res.json();
+            pokemonList = data.map(p => ({ name: p.name, types: p.types }));
+            statusDiv.textContent = `ONLINE (Base: ${pokemonList.length} + Z-A Data)`;
+        } catch (e) {
+            statusDiv.textContent = "OFFLINE MODE";
+        }
+    }
+
+    const startBtn = document.getElementById('startBtn');
+    const resultDiv = document.getElementById('result');
+    const pokeNameDiv = document.getElementById('poke-name');
+    const pokeTypesDiv = document.getElementById('poke-types');
+    const statusDiv = document.getElementById('status');
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'ja-JP';
+
+        startBtn.addEventListener('click', () => {
+            recognition.start();
+            statusDiv.textContent = "Listening...";
+            pokeNameDiv.textContent = "LISTENING";
+            pokeTypesDiv.textContent = "...";
+            resultDiv.textContent = "";
+            startBtn.style.opacity = "0.5";
+        });
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            processInput(transcript);
+            startBtn.style.opacity = "1";
+        };
+        recognition.onend = () => { statusDiv.textContent = "Standby"; startBtn.style.opacity = "1";};
+    } else {
+        resultDiv.textContent = "Voice API Not Supported";
+    }
+
+    function processInput(text) {
+        text = text.replace(/\s+/g, "");
+
+        for (const key in customData) {
+            if (text.includes(key)) {
+                showWeakness(customData[key][0], customData[key][1], key, true);
+                return;
+            }
+        }
+
+        if (text.includes("メガ")) {
+            const baseName = text.replace("メガ", "");
+            const megaMatch = Object.keys(megaData).find(key => text.includes(key));
+            if(megaMatch) {
+                showWeakness(megaData[megaMatch][0], megaData[megaMatch][1], "メガ" + megaMatch, false);
+                return;
+            }
+            const normalMatch = pokemonList.find(p => baseName.includes(p.name));
+            if(normalMatch) {
+                showWeakness(normalMatch.types[0], normalMatch.types[1], "メガ" + normalMatch.name, false);
+                return;
+            }
+        }
+
+        const foundPokemon = pokemonList.find(p => text.includes(p.name));
+        if (foundPokemon) {
+            showWeakness(foundPokemon.types[0], foundPokemon.types[1], foundPokemon.name, false);
+            return;
+        }
+
+        for (const type in typeMatrix) {
+            if (text.includes(type)) {
+                showWeakness(type, null, type + "タイプ", false);
+                return;
+            }
+        }
+
+        speak("データが見つかりません。");
+        pokeNameDiv.textContent = "UNKNOWN";
+        resultDiv.textContent = "データなし";
+    }
+
+    function showWeakness(type1, type2, name, isNew) {
+        let weaknesses = [];
+        for (const atk in typeMatrix) {
+            let rate = typeMatrix[atk][type1];
+            // type2がある場合のみ掛け算
+            if (type2 && typeMatrix[atk][type2] !== undefined) {
+                 rate *= typeMatrix[atk][type2];
+            }
+            if (rate >= 2.0) weaknesses.push({ type: atk, rate: rate });
+        }
+        weaknesses.sort((a, b) => b.rate - a.rate);
+
+        const badgeHtml = isNew ? '<span class="new-badge">NEW</span>' : '';
+        pokeNameDiv.innerHTML = name + badgeHtml;
+        pokeTypesDiv.textContent = type2 ? `${type1} / ${type2}` : type1;
+
+        if (weaknesses.length === 0) {
+            resultDiv.textContent = "弱点なし";
+            resultDiv.className = "no-weak";
+            speak(`${name}に弱点はありません`);
+        } else {
+            const html = weaknesses.map(w => w.rate >= 4 ? `<span class="weak-4x">${w.type}</span>` : w.type).join("、");
+            resultDiv.innerHTML = html;
+            resultDiv.className = "";
+            const readText = weaknesses.map(w => w.rate >= 4 ? `${w.type}、4倍` : w.type).join("、");
+            speak(`${name}の弱点は、${readText}です`);
+        }
+    }
+
+    function speak(text) {
+        window.speechSynthesis.cancel();
+        const uttr = new SpeechSynthesisUtterance(text);
+        uttr.lang = "ja-JP";
+        uttr.rate = 1.3;
+        window.speechSynthesis.speak(uttr);
+    }
+</script>
+</body>
+</html>
