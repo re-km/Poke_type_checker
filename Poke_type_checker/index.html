@@ -91,6 +91,14 @@
             margin-left: 8px;
             text-shadow: none;
         }
+        
+        /* 認識された文字を表示するエリアを追加 */
+        #transcript-debug {
+            font-size: 0.7em;
+            color: #445;
+            margin-top: 5px;
+            height: 1em;
+        }
 
         canvas { display: none; }
     </style>
@@ -100,20 +108,25 @@
     <div id="result-card">
         <div id="poke-name">SYSTEM READY</div>
         <div id="poke-types">Awaiting Input</div>
-        <div id="result">ボタンを押して話しかけてください<br><span style="font-size:0.7em; color:#667;">（例：「ピカチュウ」「メガオーダイル」）</span></div>
+        <div id="result">ボタンを押して話しかけてください<br><span style="font-size:0.7em; color:#667;">（例：「メガライチュウ エックス」）</span></div>
     </div>
     
     <button id="startBtn">🎙️ ANALYZE</button>
+    <div id="transcript-debug"></div>
     <div id="status">Database Loaded</div>
 
     <canvas id="iconCanvas" width="512" height="512"></canvas>
 
 <script>
     // ==========================================
-    // 【Z-A 攻略サイト参照データエリア】
-    // ★重要★ ここも全て「ひらがな/カタカナ」で統一しています
+    // 【Z-A データエリア】
     // ==========================================
     const customData = {
+        // 長い名前（X/Y付き）を確実に反応させるため、ここにも明記しておくと安心です
+        "メガライチュウX": ["でんき", "かくとう"],
+        "メガライチュウY": ["でんき", "エスパー"],
+        "メガライチュウ": ["でんき", "かくとう"], // X/Yを指定しなかった場合のデフォルト
+
         "メガオーダイル": ["みず", "ドラゴン"], 
         "メガバクフーン": ["ほのお", "ゴースト"], 
         "メガメガニウム": ["くさ", "フェアリー"], 
@@ -122,10 +135,6 @@
         "メガエースバーン": ["ほのお"], 
         "メガインテレオン": ["みず"],
 
-        "メガライチュウ": ["でんき", "かくとう"], 
-        "メガライチュウX": ["でんき", "かくとう"],
-        "メガライチュウY": ["でんき", "エスパー"],
-        
         "メガゲッコウガ": ["みず", "あく"],
         "メガマフォクシー": ["ほのお", "エスパー"],
         "メガブリガロン": ["くさ", "かくとう"],
@@ -166,6 +175,19 @@
         "パーフェクトジガルデ": ["ドラゴン", "じめん"],
     };
 
+    // 既存メガシンカデータ
+    const megaData = {
+        "リザードンX": ["ほのお", "ドラゴン"], "リザードンY": ["ほのお", "ひこう"],
+        "ミュウツーX": ["エスパー", "かくとう"], "ミュウツーY": ["エスパー"],
+        "ギャラドス": ["みず", "あく"],
+        "ゲンガー": ["ゴースト", "どく"], "デンリュウ": ["でんき", "ドラゴン"],
+        "ジュカイン": ["くさ", "ドラゴン"], "バシャーモ": ["ほのお", "かくとう"],
+        "ラグラージ": ["みず", "じめん"], "サーナイト": ["エスパー", "フェアリー"],
+        "クチート": ["はがね", "フェアリー"], "ボスゴドラ": ["はがね"],
+        "チルタリス": ["ドラゴン", "フェアリー"], "ミミロップ": ["ノーマル", "かくとう"],
+        "ルカリオ": ["かくとう", "はがね"], "ガブリアス": ["ドラゴン", "じめん"]
+    };
+
     window.onload = function() {
         const canvas = document.getElementById('iconCanvas');
         const ctx = canvas.getContext('2d');
@@ -189,7 +211,7 @@
         loadPokemonData();
     };
 
-    // --- 修正箇所: 全て公式表記（ひらがな・カタカナ）に統一 ---
+    // 公式表記（ひらがな・カタカナ）
     const typeMatrix = {
         "ノーマル": { "いわ": 0.5, "ゴースト": 0, "はがね": 0.5 },
         "ほのお": { "ほのお": 0.5, "みず": 0.5, "くさ": 2, "こおり": 2, "むし": 2, "いわ": 0.5, "ドラゴン": 0.5, "はがね": 2 },
@@ -211,17 +233,6 @@
         "フェアリー": { "ほのお": 0.5, "かくとう": 2, "どく": 0.5, "ドラゴン": 2, "あく": 2, "はがね": 0.5 }
     };
 
-    const megaData = {
-        "リザードンX": ["ほのお", "ドラゴン"], "リザードンY": ["ほのお", "ひこう"],
-        "ミュウツーX": ["エスパー", "かくとう"], "ギャラドス": ["みず", "あく"],
-        "ゲンガー": ["ゴースト", "どく"], "デンリュウ": ["でんき", "ドラゴン"],
-        "ジュカイン": ["くさ", "ドラゴン"], "バシャーモ": ["ほのお", "かくとう"],
-        "ラグラージ": ["みず", "じめん"], "サーナイト": ["エスパー", "フェアリー"],
-        "クチート": ["はがね", "フェアリー"], "ボスゴドラ": ["はがね"],
-        "チルタリス": ["ドラゴン", "フェアリー"], "ミミロップ": ["ノーマル", "かくとう"],
-        "ルカリオ": ["かくとう", "はがね"], "ガブリアス": ["ドラゴン", "じめん"]
-    };
-
     let pokemonList = [];
 
     async function loadPokemonData() {
@@ -241,6 +252,7 @@
     const pokeNameDiv = document.getElementById('poke-name');
     const pokeTypesDiv = document.getElementById('poke-types');
     const statusDiv = document.getElementById('status');
+    const debugDiv = document.getElementById('transcript-debug');
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (SpeechRecognition) {
@@ -250,6 +262,7 @@
         startBtn.addEventListener('click', () => {
             recognition.start();
             statusDiv.textContent = "Listening...";
+            debugDiv.textContent = "";
             pokeNameDiv.textContent = "LISTENING";
             pokeTypesDiv.textContent = "...";
             resultDiv.textContent = "";
@@ -258,6 +271,7 @@
 
         recognition.onresult = (event) => {
             const transcript = event.results[0][0].transcript;
+            debugDiv.textContent = `認識: ${transcript}`; // デバッグ用表示
             processInput(transcript);
             startBtn.style.opacity = "1";
         };
@@ -267,9 +281,17 @@
     }
 
     function processInput(text) {
-        text = text.replace(/\s+/g, "");
+        // ★改善点1: 音声認識のゆらぎを補正
+        text = text.replace(/\s+/g, "")
+                   .replace(/エックス/g, "X")
+                   .replace(/ワイ/g, "Y")
+                   .replace(/ゼット/g, "Z"); // ついでにZも
 
-        for (const key in customData) {
+        // ★改善点2: キーの配列を作成し「文字数が長い順」に並び替えてから検索する
+        // これにより「メガライチュウX (7文字)」が「メガライチュウ (6文字)」より先にヒットする
+        const customKeys = Object.keys(customData).sort((a, b) => b.length - a.length);
+
+        for (const key of customKeys) {
             if (text.includes(key)) {
                 showWeakness(customData[key][0], customData[key][1], key, true);
                 return;
@@ -278,11 +300,17 @@
 
         if (text.includes("メガ")) {
             const baseName = text.replace("メガ", "");
-            const megaMatch = Object.keys(megaData).find(key => text.includes(key));
-            if(megaMatch) {
-                showWeakness(megaData[megaMatch][0], megaData[megaMatch][1], "メガ" + megaMatch, false);
-                return;
+            
+            // 既存メガシンカも文字数順にソートして検索
+            const megaKeys = Object.keys(megaData).sort((a, b) => b.length - a.length);
+            for (const key of megaKeys) {
+                 if (text.includes(key)) {
+                     showWeakness(megaData[key][0], megaData[key][1], "メガ" + key, false);
+                     return;
+                 }
             }
+
+            // 通常ポケモンに「メガ」がついている場合（例：メガカイリューでカイリューのデータを出す）
             const normalMatch = pokemonList.find(p => baseName.includes(p.name));
             if(normalMatch) {
                 showWeakness(normalMatch.types[0], normalMatch.types[1], "メガ" + normalMatch.name, false);
@@ -312,7 +340,6 @@
         let weaknesses = [];
         for (const atk in typeMatrix) {
             let rate = typeMatrix[atk][type1];
-            // type2がある場合のみ掛け算
             if (type2 && typeMatrix[atk][type2] !== undefined) {
                  rate *= typeMatrix[atk][type2];
             }
